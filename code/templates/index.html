@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Treemap Visualization</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('/static/images/reel.png'), url('/static/images/reel.png');
+            background-position: left top, right top;
+            background-repeat: repeat-y;
+            background-attachment: scroll;
+            background-size: 100px auto;
+            background-color: #f9f9f9c4;
+            
+        }
+
+        @media (max-width: 768px) {
+            body {
+                background-image: none;
+            }
+        }
+
+        #intro, #treemap-description, #heatmap-description, footer {
+            margin: 20px;
+            padding: 10px;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        p {
+            color: #666;
+        }
+
+        #genre-selector {
+            display: flex;
+            justify-content: center;
+            font-size: 16px; /* Increase the base font size */
+        }
+        #genreSelect {
+            padding: 0px 20px;
+            width: 30%;
+            font-size: 1.25em;
+            margin: 0 10px;
+        }
+        #genre-selector label {
+            font-size: 1.25em;
+            margin-right: 10px;
+        }
+
+        footer {
+            font-size: 0.8em;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            border-top: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+
+
+    <!-- Genre Selector -->
+    <div id="g-s">
+        
+    </div>
+   
+    <!-- Intro Text -->
+    <div id="intro" style="justify-content: center; width: 65%; margin: auto;">
+        <h1>Welcome to the Movie Revenue Visualization</h1>
+        <p>This visualization project explores the top-grossing movies of 2023 in the North American Box Office. The primary aim is to help movie makers strategize their releases suing the provided analysis.</p>
+        <p>In 2023, the film industry continued to captivate audiences with a wide array of cinematic experiences, ranging from high-octane action films and heartfelt comedies to groundbreaking adventures and intense dramas. As movie enthusiasts, one intriguing question always arises: <b>What was the best movie of the year?</b>
+
+            
+            While "best" can be subjective, one objective measure is a movie's success at the box office. In this analysis, I delve into the North American box office gross earnings to uncover which movies not only captured our imagination but also drew the largest audiences to theaters.
+            
+            The primary dataset comprises detailed box office earnings in North America for the top-grossing films of 2023. Each movie's financial success is a testament to its popularity, marketing effectiveness, and, arguably, its quality and appeal to the public.
+            
+            I visualize this dataset through various unique ways, which allows us to intuitively understand the comparative scale of each movie's earnings. The colors represent different genres. This visual representation offers a clear perspective on which films led the box office, providing an immediate sense of the financial landscape of 2023's cinematic offerings.</p>
+
+        <p>This project presents a detailed visualization of movie revenue data to analyze factors influencing box office success in 2023. By employing various visualization techniques, the aim is to reveal trends and insights that might not be immediately evident through traditional data analysis.
+
+            The first visualization is a Sankey diagram, which depicts the distribution of box office earnings across different genres. This diagram is crucial for understanding the <b>financial impact</b> of each genre, highlighting which genres are the most lucrative and their respective shares of the total market.
+            
+            Next, a treemap provides a more detailed breakdown of box office earnings by genre and individual movies. This visualization allows for a closer examination of which specific films are driving the financial success within their genres, offering a <b>granular perspective</b> on the contributions of individual movies to the genre's overall success.
+            
+            Lastly, the project includes a heatmap that shows the distribution of box office earnings throughout the year, broken down by month. This heatmap is instrumental in identifying which months yield the highest revenues, illustrating <b>seasonal trends</b> and the optimal times for movie releases.</p>
+
+        <p>Together, these visualizations offer comprehensive insights into the strategic timing of movie releases, the impact of different genres on revenue, and the standout movies that dominate box office earnings. This data serves as a valuable resource for stakeholders in the film industry, aiding in strategic planning and decision-making to maximize box office returns. </p>
+    </div>
+
+
+
+
+
+    <!-- Sankey Diagram -->
+    <div id="sankey-text" style="justify-content: center; width: 65%; margin: auto;">
+        <h2>Genre Distribution of Box Office Earnings in 2023</h2>
+        <p>
+            For vizualizing the box office earnings across genres, I have employed a Snakey diagram. The Sankey diagram serves as a visual summary of the film industry's financial landscape over the past year, specifically highlighting the distribution of box office earnings among various movie genres in 2023. The diagram starts with a comprehensive block representing the total earnings, which then branches out into streams that connect to different genres.
+
+            As one examines the diagram, it's evident that certain genres have played a pivotal role in driving the industry's revenue. Notably, genres such as <b>Action</b> and <b>Adventure</b> show significantly larger streams (accounting for a third, and a fifth of the total revenue respectively), reflecting their dominance in the market and popularity among audiences. These thicker streams suggest that such genres have been the powerhouses of box office earnings.
+            
+            Conversely, other genres like Documentary and Reality feature much slimmer streams. This visual disparity illustrates that while they contribute to the diversity of the industry's offerings, their financial impact is less pronounced when compared to the heavyweight genres.
+        </p>
+        <p>
+            The diagram effectively breaks down the complexity of revenue distribution into a straightforward visual narrative. This allows industry stakeholders to identify at a glance which genres may yield a better return on investment and to strategize accordingly for future productions and marketing efforts.
+        </p>
+    </div>
+
+    <div id="sankey" style="display: flex; justify-content: center; margin: auto;  width: 70%; border: 1px solid #ccc;"></div>
+        <div id="sankey-controls" style="text-align: center; margin-top: 10px;">
+            <button id="resetZoom" style="padding: 5px 10px; font-size: 12px;">Reset Zoom</button>
+    </div>
+    <script>
+        const sankeyData = {{ sankey_data|safe }};
+        let svg, zoom;
+    
+        function drawSankey() {
+
+            const colorScale = d3.scaleOrdinal()
+            .domain(["Total Earnings", "Action", "Adventure", "Black Comedy", "Comedy", "Concert/Perfor\u2026", "Documentary", "Drama", "Horror", "Multiple Genres", "Musical", "Reality", "Romantic Comedy", "Thriller/Suspense", "Western"])
+            // Use a color scheme of 14 pastel colors that are colorblind-friendly
+            .range(["grey", "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928", "#8dd3c7", "#ffffb3"]);
+        
+            const margin = {top: 10, right: 10, bottom: 40, left: 10};
+            const width = Math.min(window.innerWidth * 0.65, 1600) - margin.left - margin.right;
+            const height = 1050 - margin.top - margin.bottom;
+
+            const totalEarningsColor = "grey";
+    
+            // Define the zoom behavior
+            zoom = d3.zoom()
+                .scaleExtent([0.5, 2]) // Sets the minimum and maximum zoom scale
+                .on("zoom", function (event) {
+                    svgContent.attr("transform", event.transform);
+                });
+
+            function setupGradients(svg, links, colorScale) {
+                // Create a defs (definitions) element for gradients
+                const defs = svg.append("defs");
+            
+                // Create a gradient for each link
+                links.forEach((link, i) => {
+                    const gradient = defs.append("linearGradient")
+                        .attr("id", `gradient-${i}`)
+                        .attr("gradientUnits", "userSpaceOnUse")
+                        .attr("x1", link.source.x1)
+                        .attr("y1", (link.source.y0 + link.source.y1) / 2)
+                        .attr("x2", link.target.x0)
+                        .attr("y2", (link.target.y0 + link.target.y1) / 2);
+            
+                    gradient.append("stop")
+                        .attr("offset", "0%")
+                        .attr("stop-color", colorScale(link.source.name));
+            
+                    gradient.append("stop")
+                        .attr("offset", "100%")
+                        .attr("stop-color", colorScale(link.target.name));
+                });
+            }
+                
+    
+            // Clear the previous SVG
+            d3.select("#sankey svg").remove();
+    
+            // Create the SVG container and apply the zoom behavior
+            svg = d3.select("#sankey").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .call(zoom);
+    
+            // Create a container for the Sankey diagram contents
+            const svgContent = svg.append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+    
+            // Set up the sankey generator
+            const sankey = d3.sankey()
+                .nodeWidth(30)
+                .nodePadding(40)
+                .extent([[0, 0], [width, height]]);
+    
+            const color = d3.scaleOrdinal(d3.schemeCategory10);
+            const nodeMap = new Map(sankeyData.nodes.map((node, i) => [node.id, i]));
+    
+            // Link the nodes and the links
+            sankeyData.links.forEach(link => {
+                link.source = nodeMap.get(link.source);
+                link.target = nodeMap.get(link.target);
+            });
+    
+            const {nodes, links} = sankey({
+                nodes: sankeyData.nodes.map(d => ({...d})),
+                links: sankeyData.links.map(d => ({...d}))
+            });
+
+            const totalFlow = d3.sum(links, d => d.value);
+
+            nodes.forEach(node => {
+                const nodeFlow = d3.sum(links.filter(d => d.source === node || d.target === node), d => d.value);
+                node.percentage = (nodeFlow / totalFlow * 100).toFixed(2);  // Keep one decimals for percentage
+            });
+            
+
+
+            setupGradients(svg, links, colorScale);
+    
+            // Draw the links using the gradient
+            const link = svgContent.append("g")
+                .attr("fill", "none")
+                .attr("stroke-opacity", 0.5)
+                .selectAll("path")
+                .data(links)
+                .enter().append("path")
+                    .attr("d", d3.sankeyLinkHorizontal())
+                    .attr("stroke", (d, i) => `url(#gradient-${i})`)  // Use gradient
+                    .attr("stroke-width", d => Math.max(1, d.width));
+
+            // Draw the nodes
+            const node = svgContent.append("g")
+                .selectAll("rect")
+                .data(nodes)
+                .enter().append("rect")
+                    .attr("x", d => d.x0)
+                    .attr("y", d => d.y0)
+                    .attr("height", d => d.y1 - d.y0)
+                    .attr("width", sankey.nodeWidth())
+                    .attr("fill", d => d.name === "Total Earnings" ? totalEarningsColor : colorScale(d.name))
+                    .attr("stroke", "#000");
+    
+                // Add node labels with percentages
+                svgContent.append("g")
+                    .style("font", "14px sans-serif")
+                    .selectAll("text")
+                    .data(nodes)
+                    .enter().append("text")
+                        .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+                        .attr("y", d => (d.y1 + d.y0) / 2)
+                        .attr("dy", "0.35em")
+                        .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+                        .text(d => `${d.name} (${d.percentage}%)`);
+
+                // Add a tooltip for all nodes
+                node.append("title")
+                    .text(d => `${d.name}\n${d.value.toLocaleString()} (${d.percentage}%)`); 
+    
+            // Add a title for the diagram
+            svg.append("text")
+                .attr("x", width / 2 + margin.left)
+                .attr("y", height + margin.top + 20)
+                .attr("class", "caption")
+                .style("font", "16px sans-serif")
+                .style("text-anchor", "middle")
+                .text("Distribution of Box Office Earnings Across Genres in 2023");
+        }
+    
+        // Initial draw
+        drawSankey();
+
+        document.getElementById('resetZoom').addEventListener('click', function() {
+            svg.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity); // Reset zoom to initial state
+        });
+    
+        // Redraw based on the new size whenever the window is resized
+        window.addEventListener('resize', drawSankey);
+
+ 
+    </script>
+    
+ 
+        <div id="Dive" style="justify-content: center; width: 65%; margin: auto;">
+        <p>Dive Deeper and Explore by Genre: </p>
+            <p>
+            Recognizing that the film industry is wonderfully diverse, I've incorporated an interactive element into our analysis: a genre selection dropdown. This tool enables users to refine the treemap visualization to display box office earnings within specific genres.
+            
+            Whether you're interested in the adrenaline rush of action movies, the imaginative nature of adventure, the heartwarming moments of comedies, you can select your preferred genre from the dropdown. This interactivity allows for a tailored exploration of 2023's movies, providing insights into which genres dominated the box office and how different stories resonated with audiences across North America.
+            
+            Select a genre from the dropdown to start your exploration and uncover the top movies of 2023 within each cinematic category.</p>
+        </div>
+<!-- Genre Selector -->
+<div id="genre-selector" style="display: flex; justify-content: center;">
+    <label for="genreSelect">Select Genre:</label>
+    <select id="genreSelect" onchange="updateVisualizations()">
+        <option value="All">All Genres</option>
+        {% for genre in genres %}
+        <option value="{{ genre }}">{{ genre }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<div style="display: flex; justify-content: center; align-items: center; width: 85%; margin: auto; height: 700px; flex-wrap: wrap; border: 1px solid #ccc;">
+    <div id="treemap" style="flex: 1 1 60%; display: flex; justify-content: center; align-items: center; min-width: 300px; height: 100%; background-color: #f9f9f9;">
+    </div>
+    <div id="heatmap" style="flex: 1 1 40%; display: flex; justify-content: center; align-items: center; min-width: 100px; height: 100%; background-color: #f9f9f9;">
+    </div>
+</div>
+
+<script>
+    const data = {{ treemap_data|safe }};
+    const genres = {{ genres|tojson }};
+    const heatmapData = {{ heatmap_data|safe }};
+
+    let filteredData = data;
+
+    function updateVisualizations() {
+        const selectedGenre = document.getElementById('genreSelect').value;
+        
+        // Update Treemap
+        if (selectedGenre === 'All') {
+            drawTreemap(data);
+        } else {
+            const filteredTreemapData = {
+                name: selectedGenre,
+                children: data.children.find(d => d.name === selectedGenre).children
+            };
+            drawTreemap(filteredTreemapData);
+        }
+    
+        // Update Heatmap
+    if (selectedGenre === 'All') {
+        const aggregatedHeatmapData = {};
+        Object.keys(heatmapData).forEach(month => {
+            // Initialize the aggregation for each month
+            aggregatedHeatmapData[month] = 0;
+            // Sum up all values for each genre within the month
+            Object.values(heatmapData[month]).forEach(value => {
+                aggregatedHeatmapData[month] += value;
+            });
+        });
+        drawHeatmap(aggregatedHeatmapData, true);  // Pass 'true' to indicate that we're handling the 'All' case
+    } else {
+        const filteredHeatmapData = {};
+        Object.keys(heatmapData).forEach(month => {
+            filteredHeatmapData[month] = {};
+            filteredHeatmapData[month][selectedGenre] = heatmapData[month][selectedGenre];
+        });
+        drawHeatmap(filteredHeatmapData, false);  // Pass 'false' to indicate a single-genre case
+    }
+    }
+
+    const colorScale = d3.scaleOrdinal()
+    .domain(["Action", "Adventure", "Black Comedy", "Comedy", "Concert/Perfor\u2026", "Documentary", "Drama", "Horror", "Multiple Genres", "Musical", "Reality", "Romantic Comedy", "Thriller/Suspense", "Western"])
+    // Use a color scheme of 14 pastel colors that are colorblind-friendly
+    .range(["#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928", "#8dd3c7", "#ffffb3"]);
+
+    function getSize(containerId) {
+        return document.getElementById(containerId).getBoundingClientRect();
+    }
+
+    function drawTreemap(data) {
+        const containerSize = getSize('treemap');
+        const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+    
+        document.getElementById('treemap').innerHTML = '';  // Clear previous treemap
+;
+        const root = d3.hierarchy(data).sum(d => d.value);
+        d3.treemap().size([width, height-100]).padding(2)(root);
+
+        const svg = d3.select("#treemap").append("svg")
+            .attr("width", width )
+            .attr("height", height + 30);
+
+            svg.append("text")
+            .attr("x", window.innerWidth / 4) // Centering the text
+            .attr("y", height ) // Position below the diagram
+            .attr("class", "caption")
+            .style("font", "16px sans-serif") // Style the font as needed
+            .style("text-anchor", "middle") // Center the text horizontally
+            .text("Distribution of Box Office Earnings Across Genres and Movies in 2023");
+
+        const cell = svg.selectAll("g")
+            .data(root.leaves())
+            .enter().append("g")
+                .attr("transform", d => `translate(${d.x0},${d.y0})`);
+    
+        cell.append("rect")
+            .attr("width", d => d.x1 - d.x0)
+            .attr("height", d => d.y1 - d.y0)
+            .attr("fill", d => colorScale(d.parent.data.name))  // Use the color scale based on genre
+            .attr("stroke", "#fff");
+
+        // Add a tooltip for all boxes
+        cell.append("title")
+            .text(d => `${d.data.name}\n${d.value.toLocaleString()}`);
+
+
+        // Add text only if the box is large enough
+        cell.filter(d => (d.x1 - d.x0) > 40) 
+            .append("text")
+            .attr("dx", 4)
+            .attr("dy", 20)
+            .text(d => d.data.name + "\n $ " + d.value.toLocaleString());
+
+
+    }
+
+    drawTreemap(data);  // Draw initial treemap
+
+    
+
+    function drawHeatmap(data, isAll) {
+        const containerSize = getSize('heatmap');
+        const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+        // Clear previous content
+        document.getElementById('heatmap').innerHTML = '';
+        const svg = d3.select("#heatmap").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+
+    
+        const margin = { top: 1, right: 1, bottom: 10, left: 1},
+              g = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+        
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];      
+        const months = Object.keys(data).sort((a, b) => a - b); // Assume months are numeric strings
+        const genres = isAll ? ['All'] : Object.keys(data[months[0]]);
+    
+        const y = d3.scaleBand().rangeRound([0, height-20]).padding(0.1).domain(months);
+        const x = d3.scaleBand().rangeRound([50, width/2]).padding(0.1).domain(genres);
+        const maxValue = d3.max(Object.values(data), month => isAll ? month : d3.max(Object.values(month)));
+    
+        // Inverting the domain to correctly match the visual gradient
+        const z = d3.scaleSequential(d3.interpolateViridis).domain([maxValue, 0]);
+
+
+    
+        g.selectAll(".heatmap-rect")
+          .data(months.map(month => ({ month, value: isAll ? data[month] : data[month][genres[0]] })))
+          .enter().append("rect")
+            .attr("y", d => y(d.month))
+            .attr("x", () => x(isAll ? 'All' : genres[0]))
+            .attr("width", width/3)
+            .attr("height", height / 24)
+            .attr("fill", d => z(d.value))
+            .attr("stroke", "black");
+    
+        // Add text labels for months next to the bars
+        g.selectAll(".month-label")
+          .data(months)
+          .enter().append("text")
+            .attr("class", "month-label")
+            .attr("y", d => y(d) + y.bandwidth() / 3.5)  // Centered in the band
+            .attr("x", width/3 + 100)  // Positioned right of the bars based on fixed width
+            .attr("dy", ".35em")
+            .attr("alignment-baseline", "middle")
+            .text(d => monthNames[d - 1]);  // Display the month names
+
+            // Adding captions for the x and y axis
+    svg.append("text")
+        .attr("x", 300) // Centering the text
+        .attr("y", height-10) // Position below the Sankey diagram
+        .attr("class", "caption")
+        .style("font", "16px sans-serif") // Style the font as needed
+        .style("text-anchor", "middle") // Center the text horizontally
+        .text("Distribution of Box Office Earnings Across Months in 2023");
+
+    // Adding the color gradient legend
+    const legendHeight = 300;
+    const legendWidth = 20;
+    const numSwatches = 10;
+    const colorScale = d3.scaleSequential(d3.interpolateViridis)
+                         .domain([0, numSwatches - 1]);
+
+    const legend = svg.append("g")
+                      .attr("transform", `translate(${width/3 + 150}, ${height/8})`);  // Adjust these values as needed
+
+    legend.selectAll(".color-swatch")
+          .data(d3.range(numSwatches))
+          .enter().append("rect")
+            .attr("y", (d, i) => i * (legendHeight / numSwatches))
+            .attr("height", legendHeight / numSwatches)
+            .attr("width", legendWidth)
+            .attr("fill", d => colorScale(d));
+
+    // Add labels for the legend
+    legend.append("text")
+          .attr("x", legendWidth + 5)
+          .attr("y", 0)
+          .attr("dy", ".35em")
+          .text("High");
+
+    legend.append("text")
+          .attr("x", legendWidth + 5)
+          .attr("y", legendHeight)
+          .attr("dy", ".35em")
+          .text("Low");
+    }
+    
+    
+    const aggregatedHeatmapData = {};
+        Object.keys(heatmapData).forEach(month => {
+            // Initialize the aggregation for each month
+            aggregatedHeatmapData[month] = 0;
+            // Sum up all values for each genre within the month
+            Object.values(heatmapData[month]).forEach(value => {
+                aggregatedHeatmapData[month] += value;
+            });
+        });
+        drawHeatmap(aggregatedHeatmapData, true);
+</script>
+
+<div id="treemap-text" style="justify-content: center; width: 65%; margin: auto;">
+    <h2>Distribution of Box Office Earnings in 2023 across movies and genres</h2>
+
+    <p>     
+        The second vizualization is a Treemap that provides a detailed breakdown of box office earnings by genre and individual movies. 
+        The treemap provided is a portrayal of the box office earnings for 2023, classified by genre and further subdivided by individual movies. Each rectangle in the treemap is sized proportionally to the film's earnings, creating a visual hierarchy that immediately communicates the relative financial success of each title within its genre.
+
+At first glance, it is apparent which movies have made a significant impact on the box office. Blockbusters in popular genres command large areas of the map, signifying their dominance in revenue generation. These standout movies are not only a testament to their own success but also act as flag bearers for their respective genres.
+
+On the other end of the spectrum, the treemap includes smaller rectangles representing films with lower earnings, underscoring the competitive nature of the industry. The varied sizes and colors form a mosaic that echoes the diverse range of films offered to audiences during the year. The details can be viewed by hovering over each rectangle, revealing the movie's name and earnings by a tooltip.
+
+    </p>
+    <p>
+        The genres can be selected using the dropdown allowing for granular exploration of the box office earnings within specific genres. This interactive feature enables users to focus on their preferred genres and uncover the standout movies that contributed to the genre's financial success. By selecting a genre, you can delve deeper into the treemap and identify the top-performing movies that captivated audiences and drove box office revenues in 2023.
+        The clustering of movies within their genres allows for a comparative analysis of how different genres stack up against one another in terms of box office performance. This level of detail provides industry analysts and movie producers with concrete visual data to help guide future investment and production decisions.
+    </p>
+
+
+</div>
+
+
+<div id="heatmap-text" style="justify-content: center; width: 65%; margin: auto;">
+    <h2>Distribution of Box Office Earnings in 2023 across months of release</h2>
+
+    <p>   
+        The third visualization is a heatmap that shows the distribution of box office earnings throughout the year, broken down by month. 
+        The heatmap offers a straightforward visualization of box office earnings throughout the different months of 2023. Each bar on the heatmap corresponds to a month, with the length and color gradient indicative of the revenue earned within that time frame. The gradation of color from one end of the spectrum to the other, from green to purple denotes a range from low to high earnings.
+
+This visual arrangement makes it immediately clear which months were most and least profitable for the film industry. For example, longer bars with a color closer to the purple end of the spectrum (July) would signify months where movie releases saw higher box office returns. Conversely, shorter, greener bars would indicate periods of lower revenue (January).
+
+    </p>
+
+    <p>
+        The genres can again be selected using the dropdown allowing for granular exploration of the box office earnings within specific genres. 
+        Such a heatmap is instrumental for industry analysts and movie distributors in identifying patterns and seasonality in film consumption. It can highlight the months that typically see blockbuster releases and those that might be considered off-peak periods. Moreover, the visualization can trigger further investigation into the reasons behind these trends, such as holiday seasons, school breaks, or particular events that may influence movie-going behavior.
+    </p>
+</div>
+
+
+
+
+<div id="action-head" style="justify-content: center; width: 65%; margin: auto;">
+    <h2>Case Study: Action</h2>
+</div>
+<div id = "action" style="display: flex; justify-content: center; align-items: center; width: 85%; margin: auto; height: 700px; flex-wrap: wrap; border: 1px solid #ccc;">
+    <div id="treemap_action" style="flex: 1 1 60%; display: flex; justify-content: center; align-items: center; min-width: 300px; height: 100%; background-color: #f9f9f9;">
+    </div>
+    <div id="heatmap_action" style="flex: 1 1 40%; display: flex; justify-content: center; align-items: center; min-width: 100px; height: 100%; background-color: #f9f9f9;">
+    </div>
+</div>
+<script>
+    const data_2 = {{ treemap_data|safe }};
+    const genres_2 = {{ genres|tojson }};
+    const heatmapData_2 = {{ heatmap_data|safe }};
+
+    function drawVisualizationsForAction() {
+        const genre = "Action";
+
+        // Check if the genre exists in treemap data
+        const genreDataExists = data_2.children.find(d => d.name === genre);
+        if (!genreDataExists) {
+            console.error('No data for genre:', genre);
+            return; // Exit if no data found
+        }
+
+        // Treemap Data Filtering
+        const filteredTreemapData = {
+            name: genre,
+            children: data_2.children.find(d => d.name === genre)?.children || []
+        };
+
+
+
+        function drawTreemap2(data) {
+            const containerSize = getSize('treemap_action');
+            const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+            
+            document.getElementById('treemap_action').innerHTML = '';  // Clear previous treemap
+            const root = d3.hierarchy(data).sum(d => d.value).sort((a, b) => b.value - a.value);
+            d3.treemap().size([width, height-100]).padding(2)(root);
+        
+            const svg = d3.select("#treemap_action").append("svg")
+                .attr("width", width)
+                .attr("height", height + 30);
+        
+            svg.append("text")
+                .attr("x", window.innerWidth / 4) // Centering the text
+                .attr("y", height) // Position below the diagram
+                .attr("class", "caption")
+                .style("font", "16px sans-serif")
+                .style("text-anchor", "middle")
+                .text("Distribution of Box Office Earnings for Action Movies in 2023 with top 3 movies highlighted");
+        
+            const cell = svg.selectAll("g")
+                .data(root.leaves())
+                .enter().append("g")
+                    .attr("transform", d => `translate(${d.x0},${d.y0})`);
+        
+            cell.append("rect")
+                .attr("width", d => d.x1 - d.x0)
+                .attr("height", d => d.y1 - d.y0)
+                .attr("fill", d => colorScale(d.parent.data.name))
+                .attr("stroke", "#fff");
+        
+            cell.append("title")
+                .text(d => `${d.data.name}\n${d.value.toLocaleString()}`);
+        
+            cell.filter(d => (d.x1 - d.x0) > 40)
+                .append("text")
+                .attr("dx", 4)
+                .attr("dy", 20)
+                .text(d => d.data.name + "\n $ " + d.value.toLocaleString());
+        
+            const totalEarnings = root.value;
+        
+            const topMovies = root.leaves().slice(0, 3);
+            topMovies.forEach((movie, index) => {
+                const percentage = ((movie.value / totalEarnings) * 100).toFixed(2);
+                const text = `${movie.data.name}: (${percentage}%)`;
+                const textWidth = text.length * 6; // Approximation of text width
+                const textX = movie.x0 + (movie.x1 - movie.x0) / 2 + 50;
+                const textY = movie.y0 - 30 - 20 * index + 100;
+        
+                // Draw dialog box path
+                svg.append("path")
+                    .attr("d", `M${textX - textWidth/2} ${textY + 20}
+                                L${textX - 10} ${textY + 20}
+                                L${textX} ${textY + 30}
+                                L${textX + 10} ${textY + 20}
+                                L${textX + textWidth/2} ${textY + 20}
+                                V${textY - 20}
+                                H${textX - textWidth/2}
+                                Z`)
+                    .attr("fill", "white")
+                    .attr("stroke", "black");
+        
+                // Add text on top of the dialog box
+                svg.append("text")
+                    .attr("x", textX)
+                    .attr("y", textY)
+                    .text(text)
+                    .attr("font-size", "12px")
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "black");
+            });
+        }
+        
+
+
+        drawTreemap2(filteredTreemapData);
+
+ 
+
+        // Heatmap Data Filtering
+        const filteredHeatmapData = {};
+        Object.keys(heatmapData_2).forEach(month => {
+            filteredHeatmapData[month] = {};
+            filteredHeatmapData[month][genre] = heatmapData_2[month][genre] || 0;
+        });
+
+        console.log(filteredHeatmapData);
+
+
+        function drawHeatmap2(data, isAll) {
+            const containerSize = getSize('heatmap_action');
+            const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+            // Clear previous content
+            document.getElementById('heatmap_action').innerHTML = '';
+            const svg = d3.select("#heatmap_action").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+        
+            const margin = { top: 1, right: 1, bottom: 10, left: 1},
+                  g = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];      
+            const months = Object.keys(data).sort((a, b) => a - b); // Assume months are numeric strings
+            const genres = isAll ? ['All'] : Object.keys(data[months[0]]);
+        
+            const y = d3.scaleBand().rangeRound([0, height-20]).padding(0.1).domain(months);
+            const x = d3.scaleBand().rangeRound([50, width/2]).padding(0.1).domain(genres);
+        
+            let totalRevenue = d3.sum(months, month => isAll ? data[month] : d3.sum(Object.values(data[month])));
+            let monthValues = months.map(month => ({
+                month,
+                value: isAll ? data[month] : d3.sum(Object.values(data[month])),
+                percentage: ((isAll ? data[month] : d3.sum(Object.values(data[month]))) / totalRevenue * 100).toFixed(2)
+            }));
+
+            //month text for the name of the month and the percentage of the revenue
+            monthText = monthValues.map(d => `${monthNames[d.month - 1]}: (${d.percentage}%)`);
+
+
+
+            console.log(monthText);
+        
+            // Find the max and min month values
+            const maxValue = d3.max(monthValues, d => d.value);
+            const minValue = d3.min(monthValues, d => d.value);
+            const maxMonth = monthValues.find(d => d.value === maxValue).month;
+            const minMonth = monthValues.find(d => d.value === minValue).month;
+        
+            // Map months to values for the heatmap
+            const z = d3.scaleSequential(d3.interpolateViridis).domain([maxValue, minValue]);
+        
+            g.selectAll(".heatmap-rect")
+              .data(months.map(month => ({ month, value: isAll ? data[month] : data[month][genres[0]] })))
+              .enter().append("rect")
+                .attr("y", d => y(d.month))
+                .attr("x", () => x(isAll ? 'All' : genres[0]))
+                .attr("width", width/3)
+                .attr("height", y.bandwidth()/1.5)
+                .attr("fill", d => z(d.value))
+                .attr("stroke", "black");
+
+
+            
+        
+            // Draw special borders for the highest and lowest months
+            [maxMonth, minMonth].forEach(month => {
+                g.append("rect")
+                    .attr("x", x(isAll ? 'All' : genres[0]))
+                    .attr("y", y(month))
+                    .attr("width", width/3)
+                    .attr("height", y.bandwidth()/1.5)
+                    .attr("stroke", month === maxMonth ? "orange" : "red")  // gold for max, red for min
+                    .attr("stroke-width", 10)  // thicker border
+                    .attr("fill", "none");
+            });
+        
+            // Draw text labels with percentage
+            g.selectAll(".month-label")
+            .data(monthValues)
+            .enter().append("text")
+                .attr("class", "month-label")
+                .attr("y", d => y(d.month) + y.bandwidth() / 3.5)  // Centered in the band
+                .attr("x", width/3 + 100)  // Positioned right of the bars based on fixed width
+                .attr("dy", ".35em")
+                .attr("alignment-baseline", "middle")
+                .text(d => `${monthNames[d.month - 1]} (${d.percentage}%)`);  // Display the month names with percentages
+
+
+
+    
+            // Adding captions for the x and y axis
+            svg.append("text")
+                .attr("x", 300) // Centering the text
+                .attr("y", height-10) // Position below the diagram
+                .attr("class", "caption")
+                .style("font", "16px sans-serif") // Style the font as needed
+                .style("text-anchor", "middle") // Center the text horizontally
+                .text("Distribution of Box Office Earnings Across Months in 2023");
+        
+            // Adding the color gradient legend
+            const legendHeight = 300;
+            const legendWidth = 20;
+            const numSwatches = 10;
+            const colorScale = d3.scaleSequential(d3.interpolateViridis)
+                                .domain([0, numSwatches - 1]);
+        
+            const legend = svg.append("g")
+                            .attr("transform", `translate(${width/3 + 200}, ${height/8})`);  // Adjust these values as needed
+        
+            legend.selectAll(".color-swatch")
+                .data(d3.range(numSwatches))
+                .enter().append("rect")
+                    .attr("y", (d, i) => i * (legendHeight / numSwatches))
+                    .attr("height", legendHeight / numSwatches)
+                    .attr("width", legendWidth)
+                    .attr("fill", d => colorScale(d));
+        
+            // Add labels for the legend
+            legend.append("text")
+                .attr("x", legendWidth + 5)
+                .attr("y", 0)
+                .attr("dy", ".35em")
+                .text("High");
+        
+            legend.append("text")
+                .attr("x", legendWidth + 5)
+                .attr("y", legendHeight)
+                .attr("dy", ".35em")
+                .text("Low");
+        }
+     
+
+        drawHeatmap2(filteredHeatmapData, false);
+    }
+
+    drawVisualizationsForAction(); // Initialize visualizations specifically for Action genre
+
+</script>
+<div id="action-text" style="justify-content: center; width: 65%; margin: auto;">
+    <p>In 2023, the distribution of box office earnings across genres and months demonstrated significant variations, indicative of consumer preferences and industry trends. We can observe these for individual genres using the filter implemented in the earlier visualizations. However, to showcase the variation between how the revenue changes across genres, I will discuss some through case studies. The first one is for Action, this genre is especially important as it contributed the most in terms of revenue, single-handedly accounting for one-third of the total revenue of all genres. </p>
+
+    <p>In the action movie genre, standout performers such as "The Super Mario Bros. Movie," "Avatar: The Way of Water," and "Guardians of the Galaxy Vol 3" highlighted a robust appetite for high-budget, visually captivating narratives. "The Super Mario Bros. Movie" led the pack with an impressive 18.88% of the action genre’s total revenue, cementing its place as one of the successful adaptations of video game franchises in cinematic formats. While the first place Mario movie does take a chunk of the Action movie revenue, after this the fall off is more gradual, possibly indicating <b>close competition</b> in the niche. </p>
+
+    <p>The heatmap of monthly earnings further demonstrates seasonal trends in movie-going habits. The start of the year saw minimal activity, with January accounting for only 1.24% of annual earnings. However, a significant surge occurred in April, capturing 19.85% of the year's total, likely bolstered by <b>spring break</b> holidays and major blockbuster releases timed to capitalize on this period. May continued the strong performance with 17.12%, reinforcing the trend that late spring to early summer constitutes a prime release window for major films. On the other hand, October saw a stark decline to a mere 0.18%, possibly due to a lack of major releases or competing entertainment options such as televised sports and seasonal festivities. The year rounded out with a spike in December (14.57%), typically driven by <b>holiday season</b> releases and high-budget spectacles aiming to maximize audience turnout during festive periods.</p>
+    
+    <p>These visualizations not only underscore the cyclical nature of the film industry's revenue streams but also reflect strategic scheduling by studios to align major releases with periods of high audience availability, thereby maximizing their box office potential. </p>
+</div>
+
+
+<div id="comedy-head" style="justify-content: center; width: 65%; margin: auto;">
+    <h2>Case Study: Comedy</h2>
+</div>
+<div id = "comedy" style="display: flex; justify-content: center; align-items: center; width: 85%; margin: auto; height: 700px; flex-wrap: wrap; border: 1px solid #ccc;">
+    <div id="treemap_comedy" style="flex: 1 1 60%; display: flex; justify-content: center; align-items: center; min-width: 300px; height: 100%; background-color: #f9f9f9;">
+    </div>
+    <div id="heatmap_comedy" style="flex: 1 1 40%; display: flex; justify-content: center; align-items: center; min-width: 100px; height: 100%; background-color: #f9f9f9;">
+    </div>
+</div>
+<script>
+
+
+    function drawVisualizationsForAction() {
+        const genre = "Comedy";
+
+        // Check if the genre exists in treemap data
+        const genreDataExists = data_2.children.find(d => d.name === genre);
+        if (!genreDataExists) {
+            console.error('No data for genre:', genre);
+            return; // Exit if no data found
+        }
+
+        // Treemap Data Filtering
+        const filteredTreemapData = {
+            name: genre,
+            children: data_2.children.find(d => d.name === genre)?.children || []
+        };
+
+
+
+        function drawTreemap2(data) {
+            const containerSize = getSize('treemap_comedy');
+            const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+            
+            document.getElementById('treemap_comedy').innerHTML = '';  // Clear previous treemap
+            const root = d3.hierarchy(data).sum(d => d.value).sort((a, b) => b.value - a.value);
+            d3.treemap().size([width, height-100]).padding(2)(root);
+        
+            const svg = d3.select("#treemap_comedy").append("svg")
+                .attr("width", width)
+                .attr("height", height + 30);
+        
+            svg.append("text")
+                .attr("x", window.innerWidth / 4) // Centering the text
+                .attr("y", height) // Position below the diagram
+                .attr("class", "caption")
+                .style("font", "16px sans-serif")
+                .style("text-anchor", "middle")
+                .text("Distribution of Box Office Earnings for Comedy Movies in 2023 with top 3 movies highlighted");
+        
+            const cell = svg.selectAll("g")
+                .data(root.leaves())
+                .enter().append("g")
+                    .attr("transform", d => `translate(${d.x0},${d.y0})`);
+        
+            cell.append("rect")
+                .attr("width", d => d.x1 - d.x0)
+                .attr("height", d => d.y1 - d.y0)
+                .attr("fill", d => colorScale(d.parent.data.name))
+                .attr("stroke", "#fff");
+        
+            cell.append("title")
+                .text(d => `${d.data.name}\n${d.value.toLocaleString()}`);
+        
+            cell.filter(d => (d.x1 - d.x0) > 40)
+                .append("text")
+                .attr("dx", 4)
+                .attr("dy", 20)
+                .text(d => d.data.name + "\n $ " + d.value.toLocaleString());
+        
+            const totalEarnings = root.value;
+        
+            const topMovies = root.leaves().slice(0, 3);
+            topMovies.forEach((movie, index) => {
+                const percentage = ((movie.value / totalEarnings) * 100).toFixed(2);
+                const text = `${movie.data.name}:  (${percentage}%)`;
+                const textWidth = text.length * 6; // Approximation of text width
+                const textX = movie.x0 + (movie.x1 - movie.x0) / 2 + 50;
+                const textY = movie.y0 - 30 - 20 * index + 100;
+        
+                // Draw dialog box path
+                svg.append("path")
+                    .attr("d", `M${textX - textWidth/2} ${textY + 20}
+                                L${textX - 10} ${textY + 20}
+                                L${textX} ${textY + 30}
+                                L${textX + 10} ${textY + 20}
+                                L${textX + textWidth/2} ${textY + 20}
+                                V${textY - 20}
+                                H${textX - textWidth/2}
+                                Z`)
+                    .attr("fill", "white")
+                    .attr("stroke", "black");
+        
+                // Add text on top of the dialog box
+                svg.append("text")
+                    .attr("x", textX)
+                    .attr("y", textY)
+                    .text(text)
+                    .attr("font-size", "12px")
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "black");
+            });
+        }
+        
+
+
+        drawTreemap2(filteredTreemapData);
+
+ 
+
+        // Heatmap Data Filtering
+        const filteredHeatmapData = {};
+        Object.keys(heatmapData_2).forEach(month => {
+            filteredHeatmapData[month] = {};
+            filteredHeatmapData[month][genre] = heatmapData_2[month][genre] || 0;
+        });
+
+        console.log(filteredHeatmapData);
+
+
+        function drawHeatmap2(data, isAll) {
+            const containerSize = getSize('heatmap_comedy');
+            const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+            // Clear previous content
+            document.getElementById('heatmap_comedy').innerHTML = '';
+            const svg = d3.select("#heatmap_comedy").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+        
+            const margin = { top: 1, right: 1, bottom: 10, left: 1},
+                  g = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];      
+            const months = Object.keys(data).sort((a, b) => a - b); // Assume months are numeric strings
+            const genres = isAll ? ['All'] : Object.keys(data[months[0]]);
+        
+            const y = d3.scaleBand().rangeRound([0, height-20]).padding(0.1).domain(months);
+            const x = d3.scaleBand().rangeRound([50, width/2]).padding(0.1).domain(genres);
+        
+            let totalRevenue = d3.sum(months, month => isAll ? data[month] : d3.sum(Object.values(data[month])));
+            let monthValues = months.map(month => ({
+                month,
+                value: isAll ? data[month] : d3.sum(Object.values(data[month])),
+                percentage: ((isAll ? data[month] : d3.sum(Object.values(data[month]))) / totalRevenue * 100).toFixed(2)
+            }));
+
+            //month text for the name of the month and the percentage of the revenue
+            monthText = monthValues.map(d => `${monthNames[d.month - 1]}: (${d.percentage}%)`);
+
+
+
+            console.log(monthText);
+        
+            // Find the max and min month values
+            const maxValue = d3.max(monthValues, d => d.value);
+            const minValue = d3.min(monthValues, d => d.value);
+            const maxMonth = monthValues.find(d => d.value === maxValue).month;
+            const minMonth = monthValues.find(d => d.value === minValue).month;
+        
+            // Map months to values for the heatmap
+            const z = d3.scaleSequential(d3.interpolateViridis).domain([maxValue, minValue]);
+        
+            g.selectAll(".heatmap-rect")
+              .data(months.map(month => ({ month, value: isAll ? data[month] : data[month][genres[0]] })))
+              .enter().append("rect")
+                .attr("y", d => y(d.month))
+                .attr("x", () => x(isAll ? 'All' : genres[0]))
+                .attr("width", width/3)
+                .attr("height", y.bandwidth()/1.5)
+                .attr("fill", d => z(d.value))
+                .attr("stroke", "black");
+
+
+            
+        
+            // Draw special borders for the highest and lowest months
+            [maxMonth, minMonth].forEach(month => {
+                g.append("rect")
+                    .attr("x", x(isAll ? 'All' : genres[0]))
+                    .attr("y", y(month))
+                    .attr("width", width/3)
+                    .attr("height", y.bandwidth()/1.5)
+                    .attr("stroke", month === maxMonth ? "orange" : "red")  // gold for max, red for min
+                    .attr("stroke-width", 10)  // thicker border
+                    .attr("fill", "none");
+            });
+        
+            // Draw text labels with percentage
+            g.selectAll(".month-label")
+            .data(monthValues)
+            .enter().append("text")
+                .attr("class", "month-label")
+                .attr("y", d => y(d.month) + y.bandwidth() / 3.5)  // Centered in the band
+                .attr("x", width/3 + 100)  // Positioned right of the bars based on fixed width
+                .attr("dy", ".35em")
+                .attr("alignment-baseline", "middle")
+                .text(d => `${monthNames[d.month - 1]} (${d.percentage}%)`);  // Display the month names with percentages
+
+
+
+    
+            // Adding captions for the x and y axis
+            svg.append("text")
+                .attr("x", 300) // Centering the text
+                .attr("y", height-10) // Position below the diagram
+                .attr("class", "caption")
+                .style("font", "16px sans-serif") // Style the font as needed
+                .style("text-anchor", "middle") // Center the text horizontally
+                .text("Distribution of Box Office Earnings Across Months in 2023");
+        
+            // Adding the color gradient legend
+            const legendHeight = 300;
+            const legendWidth = 20;
+            const numSwatches = 10;
+            const colorScale = d3.scaleSequential(d3.interpolateViridis)
+                                .domain([0, numSwatches - 1]);
+        
+            const legend = svg.append("g")
+                            .attr("transform", `translate(${width/3 + 200}, ${height/8})`);  // Adjust these values as needed
+        
+            legend.selectAll(".color-swatch")
+                .data(d3.range(numSwatches))
+                .enter().append("rect")
+                    .attr("y", (d, i) => i * (legendHeight / numSwatches))
+                    .attr("height", legendHeight / numSwatches)
+                    .attr("width", legendWidth)
+                    .attr("fill", d => colorScale(d));
+        
+            // Add labels for the legend
+            legend.append("text")
+                .attr("x", legendWidth + 5)
+                .attr("y", 0)
+                .attr("dy", ".35em")
+                .text("High");
+        
+            legend.append("text")
+                .attr("x", legendWidth + 5)
+                .attr("y", legendHeight)
+                .attr("dy", ".35em")
+                .text("Low");
+        }
+     
+
+        drawHeatmap2(filteredHeatmapData, false);
+    }
+
+    drawVisualizationsForAction(); // Initialize visualizations specifically for Comedy genre
+
+</script>
+<div id="comedy-text" style="justify-content: center; width: 65%; margin: auto;">
+    <p>The case for comedy movies in 2023 reveals a striking dominance by "Barbie," which alone bagged a substantial 56.3% of the genre's total box office earnings, dramatically showcasing the film's overwhelming appeal and commercial success. This stark proportion highlights not only the movie's popularity but also its significant contribution to the genre, overshadowing other entries like "Haunted Mansion" and "A Man Called Otto," which managed 5.99% and 5.68% respectively. The steep drop-off after "Barbie" suggests a market <b>heavily skewed</b> towards this standout performer, with other films struggling to capture similar audience interest or financial success.</p>
+    <p>The monthly distribution of box office earnings once again tells the seasonality of cinema attendance and the strategic timing of releases. July, a peak month for movie-going due to <b>summer vacations</b>, saw an extraordinary 64.84% of the annual comedy genre earnings, likely inflated by "Barbie's" release. Such timing might be a strategic choice to exploit the increased availability of families and young audiences, maximizing viewership and revenue. In contrast, quieter months like November, January, and September experienced significantly lower earnings, highlighting the challenges films face during off-peak seasons. The year-end holiday season was not a big standout here as opposed to Action as we saw before. This could indicate that the audiences prefer other genres more during that time.</p>
+    <p>This case study not only reflects the strategic release schedules employed by studios to capitalize on high audience times, but studying this could also help reduce the potential wastage of marketing and distribution efforts by identifying the low turnout periods. </p>
+</div>
+
+
+<div id="concert-head" style="justify-content: center; width: 65%; margin: auto;">
+    <h2>Case Study: Concert/Performance</h2>
+</div>
+<div id = "concert" style="display: flex; justify-content: center; align-items: center; width: 85%; margin: auto; height: 700px; flex-wrap: wrap; border: 1px solid #ccc;">
+    <div id="treemap_concert" style="flex: 1 1 60%; display: flex; justify-content: center; align-items: center; min-width: 300px; height: 100%; background-color: #f9f9f9;">
+    </div>
+    <div id="heatmap_concert" style="flex: 1 1 40%; display: flex; justify-content: center; align-items: center; min-width: 100px; height: 100%; background-color: #f9f9f9;">
+    </div>
+</div>
+<script>
+
+
+    function drawVisualizationsForAction() {
+        const genre = "Concert/Perfor\u2026";
+
+        // Check if the genre exists in treemap data
+        const genreDataExists = data_2.children.find(d => d.name === genre);
+        if (!genreDataExists) {
+            console.error('No data for genre:', genre);
+            return; // Exit if no data found
+        }
+
+        // Treemap Data Filtering
+        const filteredTreemapData = {
+            name: genre,
+            children: data_2.children.find(d => d.name === genre)?.children || []
+        };
+
+
+
+        function drawTreemap2(data) {
+            const containerSize = getSize('treemap_concert');
+            const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+            
+            document.getElementById('treemap_concert').innerHTML = '';  // Clear previous treemap
+            const root = d3.hierarchy(data).sum(d => d.value).sort((a, b) => b.value - a.value);
+            d3.treemap().size([width, height-100]).padding(2)(root);
+        
+            const svg = d3.select("#treemap_concert").append("svg")
+                .attr("width", width)
+                .attr("height", height + 30);
+        
+            svg.append("text")
+                .attr("x", window.innerWidth / 4) // Centering the text
+                .attr("y", height) // Position below the diagram
+                .attr("class", "caption")
+                .style("font", "16px sans-serif")
+                .style("text-anchor", "middle")
+                .text("Distribution of Box Office Earnings for Concert/Performance Movies in 2023 with top 3 movies highlighted");
+        
+            const cell = svg.selectAll("g")
+                .data(root.leaves())
+                .enter().append("g")
+                    .attr("transform", d => `translate(${d.x0},${d.y0})`);
+        
+            cell.append("rect")
+                .attr("width", d => d.x1 - d.x0)
+                .attr("height", d => d.y1 - d.y0)
+                .attr("fill", d => colorScale(d.parent.data.name))
+                .attr("stroke", "#fff");
+        
+            cell.append("title")
+                .text(d => `${d.data.name}\n${d.value.toLocaleString()}`);
+        
+            cell.filter(d => (d.x1 - d.x0) > 40)
+                .append("text")
+                .attr("dx", 4)
+                .attr("dy", 20)
+                .text(d => d.data.name + "\n $ " + d.value.toLocaleString());
+        
+            const totalEarnings = root.value;
+        
+            const topMovies = root.leaves().slice(0, 3);
+            topMovies.forEach((movie, index) => {
+                const percentage = ((movie.value / totalEarnings) * 100).toFixed(2);
+                const text = `${movie.data.name}:  (${percentage}%)`;
+                const textWidth = text.length * 6; // Approximation of text width
+                const textX = movie.x0 + (movie.x1 - movie.x0) / 2 + 50;
+                const textY = movie.y0 - 30 - 20 * index + 100;
+        
+                // Draw dialog box path
+                svg.append("path")
+                    .attr("d", `M${textX - textWidth/2} ${textY + 20}
+                                L${textX - 10} ${textY + 20}
+                                L${textX} ${textY + 30}
+                                L${textX + 10} ${textY + 20}
+                                L${textX + textWidth/2} ${textY + 20}
+                                V${textY - 20}
+                                H${textX - textWidth/2}
+                                Z`)
+                    .attr("fill", "white")
+                    .attr("stroke", "black");
+        
+                // Add text on top of the dialog box
+                svg.append("text")
+                    .attr("x", textX)
+                    .attr("y", textY)
+                    .text(text)
+                    .attr("font-size", "11px")
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "black");
+            });
+        }
+        
+
+
+        drawTreemap2(filteredTreemapData);
+
+ 
+
+        // Heatmap Data Filtering
+        const filteredHeatmapData = {};
+        Object.keys(heatmapData_2).forEach(month => {
+            filteredHeatmapData[month] = {};
+            filteredHeatmapData[month][genre] = heatmapData_2[month][genre] || 0;
+        });
+
+        console.log(filteredHeatmapData);
+
+
+        function drawHeatmap2(data, isAll) {
+            const containerSize = getSize('heatmap_concert');
+            const width = containerSize.width, height = Math.min(700, window.innerHeight * 0.6);
+            // Clear previous content
+            document.getElementById('heatmap_concert').innerHTML = '';
+            const svg = d3.select("#heatmap_concert").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+        
+            const margin = { top: 1, right: 1, bottom: 10, left: 1},
+                  g = svg.append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];      
+            const months = Object.keys(data).sort((a, b) => a - b); // Assume months are numeric strings
+            const genres = isAll ? ['All'] : Object.keys(data[months[0]]);
+        
+            const y = d3.scaleBand().rangeRound([0, height-20]).padding(0.1).domain(months);
+            const x = d3.scaleBand().rangeRound([50, width/2]).padding(0.1).domain(genres);
+        
+            let totalRevenue = d3.sum(months, month => isAll ? data[month] : d3.sum(Object.values(data[month])));
+            let monthValues = months.map(month => ({
+                month,
+                value: isAll ? data[month] : d3.sum(Object.values(data[month])),
+                percentage: ((isAll ? data[month] : d3.sum(Object.values(data[month]))) / totalRevenue * 100).toFixed(2)
+            }));
+
+            //month text for the name of the month and the percentage of the revenue
+            monthText = monthValues.map(d => `${monthNames[d.month - 1]}: (${d.percentage}%)`);
+
+
+
+            console.log(monthText);
+        
+            // Find the max and min month values
+            const maxValue = d3.max(monthValues, d => d.value);
+            const minValue = d3.min(monthValues, d => d.value);
+            const maxMonth = monthValues.find(d => d.value === maxValue).month;
+            const minMonth = monthValues.find(d => d.value === minValue).month;
+        
+            // Map months to values for the heatmap
+            const z = d3.scaleSequential(d3.interpolateViridis).domain([maxValue, minValue]);
+        
+            g.selectAll(".heatmap-rect")
+              .data(months.map(month => ({ month, value: isAll ? data[month] : data[month][genres[0]] })))
+              .enter().append("rect")
+                .attr("y", d => y(d.month))
+                .attr("x", () => x(isAll ? 'All' : genres[0]))
+                .attr("width", width/3)
+                .attr("height", y.bandwidth()/1.5)
+                .attr("fill", d => z(d.value))
+                .attr("stroke", "black");
+
+
+            
+        
+            // Draw special borders for the highest and lowest months
+            [maxMonth, minMonth].forEach(month => {
+                g.append("rect")
+                    .attr("x", x(isAll ? 'All' : genres[0]))
+                    .attr("y", y(month))
+                    .attr("width", width/3)
+                    .attr("height", y.bandwidth()/1.5)
+                    .attr("stroke", month === maxMonth ? "orange" : "red")  // gold for max, red for min
+                    .attr("stroke-width", 10)  // thicker border
+                    .attr("fill", "none");
+            });
+        
+            // Draw text labels with percentage
+            g.selectAll(".month-label")
+            .data(monthValues)
+            .enter().append("text")
+                .attr("class", "month-label")
+                .attr("y", d => y(d.month) + y.bandwidth() / 3.5)  // Centered in the band
+                .attr("x", width/3 + 100)  // Positioned right of the bars based on fixed width
+                .attr("dy", ".35em")
+                .attr("alignment-baseline", "middle")
+                .text(d => `${monthNames[d.month - 1]} (${d.percentage}%)`);  // Display the month names with percentages
+
+
+
+    
+            // Adding captions for the x and y axis
+            svg.append("text")
+                .attr("x", 300) // Centering the text
+                .attr("y", height-10) // Position below the diagram
+                .attr("class", "caption")
+                .style("font", "16px sans-serif") // Style the font as needed
+                .style("text-anchor", "middle") // Center the text horizontally
+                .text("Distribution of Box Office Earnings Across Months in 2023");
+        
+            // Adding the color gradient legend
+            const legendHeight = 300;
+            const legendWidth = 20;
+            const numSwatches = 10;
+            const colorScale = d3.scaleSequential(d3.interpolateViridis)
+                                .domain([0, numSwatches - 1]);
+        
+            const legend = svg.append("g")
+                            .attr("transform", `translate(${width/3 + 200}, ${height/8})`);  // Adjust these values as needed
+        
+            legend.selectAll(".color-swatch")
+                .data(d3.range(numSwatches))
+                .enter().append("rect")
+                    .attr("y", (d, i) => i * (legendHeight / numSwatches))
+                    .attr("height", legendHeight / numSwatches)
+                    .attr("width", legendWidth)
+                    .attr("fill", d => colorScale(d));
+        
+            // Add labels for the legend
+            legend.append("text")
+                .attr("x", legendWidth + 5)
+                .attr("y", 0)
+                .attr("dy", ".35em")
+                .text("High");
+        
+            legend.append("text")
+                .attr("x", legendWidth + 5)
+                .attr("y", legendHeight)
+                .attr("dy", ".35em")
+                .text("Low");
+        }
+     
+
+        drawHeatmap2(filteredHeatmapData, false);
+    }
+
+    drawVisualizationsForAction(); // Initialize visualizations specifically for Action genre
+
+</script>
+<div id="concert-text" style="justify-content: center; width: 65%; margin: auto;">
+    <p>The distribution of box office earnings for concert/performance movies in 2023 is particularly interesting, given the unprecedented success of "Taylor Swift | The Eras Tour," which alone amassed a staggering 79.63% of the genre’s total earnings. This dominant performance not only showcases Taylor Swift's immense popularity but also her ability to draw massive audiences to theaters, perhaps indicative of a broader trend where live concert films can effectively translate live music experiences to the cinematic format. This case study is important because while this niche was not a big part of the total annual box office revenue, it still has its own unique strategy for success.  </p>
+    <p>Further analysis into the seasonal distribution of these earnings reveals that October and December were peak months, with October alone accounting for 79.65% of the annual earnings within this genre. This timing likely coincides with <b>strategic release</b> planning aimed at maximizing attendance by capturing the enthusiasm of fans during the <b>fall season</b>, possibly enhanced by holiday leisure time and the thematic resonance of live performances during festive periods. December also saw a significant uptick, capturing 19.10% of the earnings, likely driven by holiday season audiences seeking entertainment and festive experiences. The Taylor swift tour movie was strategically released during the middle of the tour, likely to capitalize on the hype and tie its success to that of the live performances. In stark contrast, other months like February, May, and June saw negligible or zero contributions to the genre’s earnings, highlighting the challenges of attracting audiences outside of optimal release windows. This pattern shows the importance of timing in the release strategy of concert films, which, unlike traditional movie genres, may rely heavily on the live event's fanbase and seasonal audience behaviors more than typical cinematic content.</p>
+    <p>The overwhelmingly central role of a single concert film in shaping the financial landscape of its genre for the year also raises questions about the sustainability and diversity of content within this niche. While "Taylor Swift | The Eras Tour" clearly set a high bar, it also overshadowed other performances, suggesting a potential area for growth in diversifying offerings and exploring different creative approaches to concert films to attract broader audiences throughout the year.</p>
+</div>
+
+<div id="Conclusion-text" style="justify-content: center; width: 65%; margin: auto;">
+    <h2>Conclusion</h2>
+    <p>The visualizations of the 2023 box office data present a clear and efficient way to digest complex financial information across different film genres and their distribution across the months. By leveraging formats like treemaps, heatmaps, and bar charts, these not only demonstrate the financial success of various movies and genres but also facilitate immediate insights into the timing of these earnings. This visual approach allows stakeholders to quickly discern patterns such as seasonal peaks in revenue and the outstanding performance of certain films, aiding in strategic decision-making concerning marketing efforts and release scheduling.</p>
+    <p>Despite their apparent advantages, these visualizations come with inherent drawbacks and risks of misinterpretation. One significant risk is the potential overemphasis on outliers, such as the massive revenue from the Taylor Swift concert movie which might give a skewed perception of typical market performance. Additionally, these visualizations might lack the necessary context about broader market conditions or economic factors that significantly impact box office results. To mitigate these risks, several strategies can be employed. Providing additional contextual data about the competitive landscape and broader economic conditions can enrich the interpretation of visual data, offering a more balanced view. In the explanation, I have made an effort to remedy this. However, some additional analysis or removal of outliers could be an alternative way to conduct this analysis. The alternative approach could provide insights that might be more relevant to up-and-coming movie makers as their works would more likely match the average and not the exception. </p>
+</div>
+
+<div id="acknowledgement-text" style="justify-content: center; width: 65%; margin: auto;">
+    <h3>Acknowledgements</h3>
+    <p>The data for this project was mined from https://www.the-numbers.com/market/2023/top-grossing-movies using python. Which was then processed and cleaned using the same. The data consists of the top 580 movies by box office revenue in North America (US and Canada). The visualizations were made using D3 and Javascript. The page is hosted on Github Pages, and is static HTML which uses Flask (python module).</p>
+
+</div>
+
+<footer>
+    <p>Created by Kinshuk Sharma. Code can be found at https://github.com/kinshuk1207/movie23/tree/main. Data from https://www.the-numbers.com/market/2023/top-grossing-movies.</p>
+
+
+</body>
+</html>
